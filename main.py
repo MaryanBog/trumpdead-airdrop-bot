@@ -9,7 +9,7 @@ print("TOKEN:", TOKEN)
 if not TOKEN or not TOKEN.startswith("799"):
     raise ValueError("TELEGRAM_BOT_TOKEN is missing or invalid.")
 
-CHANNEL_ID = "@trump_dead_coin"
+CHANNEL_ID = -1002161990185
 
 async def debug_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = await context.bot.get_chat("@trump_dead_coin")
