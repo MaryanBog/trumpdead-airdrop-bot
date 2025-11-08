@@ -3,8 +3,11 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from db import has_claimed, save_claim
 
 import os
-
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+print("TOKEN:", TOKEN)
+if not TOKEN or not TOKEN.startswith("799"):
+    raise ValueError("TELEGRAM_BOT_TOKEN is missing or invalid.")
+
 CHANNEL_ID = "@trump_dead_coin"
 
 # Проверка подписки
