@@ -1,89 +1,64 @@
-import os
-import json
+import asyncio
+import logging
+import httpx
+from solana.rpc.providers.async_http import AsyncHTTPProvider
+from solana.keypair import Keypair
+from solana.publickey import PublicKey
+from solana.transaction import Transaction
+from solana.system_program import TransferParams, transfer
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from db import has_claimed, save_claim
-from solana.rpc.async_api import AsyncClient
-from solders.keypair import Keypair
-from solders.pubkey import Pubkey
-from solders.transaction import Transaction
-from spl.token.instructions import transfer_checked, get_associated_token_address
-from spl.token.constants import TOKEN_PROGRAM_ID
 
-# Telegram token
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-if not TOKEN or not TOKEN.startswith("799"):
-    raise ValueError("TELEGRAM_BOT_TOKEN is missing or invalid.")
+# 🔐 Приватный ключ в base58-строке
+import os
 
-CHANNEL_ID = -1002161990185
+PRIVATE_KEY = os.getenv("PRIVATE_KEY")
+if not PRIVATE_KEY:
+    raise ValueError("PRIVATE_KEY is not set in environment variables")
 
-# Solana setup
-sender = Keypair.from_base58_string(os.getenv("PRIVATE_KEY"))
-client = AsyncClient("https://api.mainnet-beta.solana.com")
-MINT = Pubkey.from_string("CLX3PRe79QGUzKT1ZwNA5nVcPb4SEGoqJD5oTwJMpump")
-DECIMALS = 9
+# 🚀 Создаём RPC-клиент вручную, без proxy
+session = httpx.AsyncClient(timeout=30.0)
+client = AsyncHTTPProvider("https://api.mainnet-beta.solana.com", session)
 
-async def send_trumpdead(recipient_wallet: str, amount: float = 100):
-    recipient = Pubkey.from_string(recipient_wallet)
-    sender_token_account = get_associated_token_address(sender.pubkey(), MINT)
-    recipient_token_account = get_associated_token_address(recipient, MINT)
+# 🧾 Загружаем отправителя
+sender = Keypair.from_base58_string(PRIVATE_KEY)
 
-    tx = Transaction()
-    ix = transfer_checked(
-        source=sender_token_account,
-        mint=MINT,
-        dest=recipient_token_account,
-        owner=sender.pubkey(),
-        amount=int(amount * (10 ** DECIMALS)),
-        decimals=DECIMALS,
-        program_id=TOKEN_PROGRAM_ID,
-        signers=[]
-    )
-    tx.add(ix)
-
-    response = await client.send_transaction(tx, sender)
-    return response.value  # tx signature
-
-# Проверка подписки
-async def check_subscription(user_id: int, app) -> bool:
-    try:
-        member = await app.bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
-        return member.status in ["member", "administrator", "creator"]
-    except:
-        return False
-
-# /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Welcome! Send /wallet <your address> to claim $TRUMPDEAD.")
-
-# /wallet
+# 📤 Команда /wallet — показывает адрес
 async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    app = context.application
+    pubkey = str(sender.public_key)
+    await update.message.reply_text(f"Your wallet:\n`{pubkey}`", parse_mode="Markdown")
 
-    if not await check_subscription(user_id, app):
-        await update.message.reply_text("Please join @trump_dead_coin to receive your $TRUMPDEAD tokens.")
+# 💸 Команда /airdrop <адрес> — отправляет 0.00001 SOL
+async def airdrop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) != 1:
+        await update.message.reply_text("Usage: /airdrop <recipient_address>")
         return
 
-    if has_claimed(user_id):
-        await update.message.reply_text("You've already claimed your $TRUMPDEAD.")
-        return
+    try:
+        recipient = PublicKey(context.args[0])
+        tx = Transaction()
+        tx.add(
+            transfer(
+                TransferParams(
+                    from_pubkey=sender.public_key,
+                    to_pubkey=recipient,
+                    lamports=10000  # 0.00001 SOL
+                )
+            )
+        )
+        sig = await client.send_transaction(tx, sender, opts={"skip_preflight": True})
+        await update.message.reply_text(f"Transaction sent:\nhttps://solscan.io/tx/{sig}")
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
 
-    args = context.args
-    if args:
-        address = args[0]
-        try:
-            tx_sig = await send_trumpdead(address)
-            save_claim(user_id, address)
-            await update.message.reply_text(f"100 $TRUMPDEAD sent to {address} 🚀\nTx: https://solscan.io/tx/{tx_sig}")
-        except Exception as e:
-            await update.message.reply_text(f"Error sending tokens: {str(e)}")
-    else:
-        await update.message.reply_text("Send: /wallet <your Solana address> to claim your $TRUMPDEAD.")
+# 🧠 Запуск Telegram-бота
+async def main():
+    app = ApplicationBuilder().token("вставь_сюда_токен_бота").build()
+    app.add_handler(CommandHandler("wallet", wallet))
+    app.add_handler(CommandHandler("airdrop", airdrop))
+    await app.run_polling()
 
-# Запуск приложения
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("wallet", wallet))
-app.run_polling()
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(main())
 
