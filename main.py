@@ -3,10 +3,10 @@ import json
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from db import has_claimed, save_claim
-from solana.rpc.api import Client
-from solana.keypair import Keypair
-from solana.publickey import PublicKey
-from solana.transaction import Transaction
+from solana.rpc.async_api import AsyncClient
+from solders.keypair import Keypair
+from solders.pubkey import Pubkey
+from solders.transaction import Transaction
 from spl.token.instructions import transfer_checked, get_associated_token_address
 from spl.token.constants import TOKEN_PROGRAM_ID
 
@@ -19,30 +19,31 @@ CHANNEL_ID = -1002161990185
 
 # Solana setup
 key_array = json.loads(os.getenv("PRIVATE_KEY"))
-sender = Keypair.from_secret_key(bytes(key_array))
-client = Client("https://api.mainnet-beta.solana.com")
-MINT = PublicKey("CLX3PRe79QGUzKT1ZwNA5nVcPb4SEGoqJD5oTwJMpump")
+sender = Keypair.from_bytes(bytes(key_array))
+client = AsyncClient("https://api.mainnet-beta.solana.com")
+MINT = Pubkey.from_string("CLX3PRe79QGUzKT1ZwNA5nVcPb4SEGoqJD5oTwJMpump")
 DECIMALS = 9
 
-def send_trumpdead(recipient_wallet: str, amount: float = 100):
-    recipient = PublicKey(recipient_wallet)
-    sender_token_account = get_associated_token_address(sender.public_key, MINT)
+async def send_trumpdead(recipient_wallet: str, amount: float = 100):
+    recipient = Pubkey.from_string(recipient_wallet)
+    sender_token_account = get_associated_token_address(sender.pubkey(), MINT)
     recipient_token_account = get_associated_token_address(recipient, MINT)
 
     tx = Transaction()
-    tx.add(
-        transfer_checked(
-            program_id=TOKEN_PROGRAM_ID,
-            source=sender_token_account,
-            mint=MINT,
-            dest=recipient_token_account,
-            owner=sender.public_key,
-            amount=int(amount * (10 ** DECIMALS)),
-            decimals=DECIMALS,
-            signers=[]
-        )
+    ix = transfer_checked(
+        source=sender_token_account,
+        mint=MINT,
+        dest=recipient_token_account,
+        owner=sender.pubkey(),
+        amount=int(amount * (10 ** DECIMALS)),
+        decimals=DECIMALS,
+        program_id=TOKEN_PROGRAM_ID,
+        signers=[]
     )
-    return client.send_transaction(tx, sender)
+    tx.add(ix)
+
+    response = await client.send_transaction(tx, sender)
+    return response.value  # tx signature
 
 # Проверка подписки
 async def check_subscription(user_id: int, app) -> bool:
@@ -73,9 +74,9 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if args:
         address = args[0]
         try:
-            tx = send_trumpdead(address)
+            tx_sig = await send_trumpdead(address)
             save_claim(user_id, address)
-            await update.message.reply_text(f"100 $TRUMPDEAD sent to {address} 🚀\nTx: {tx['result']}")
+            await update.message.reply_text(f"100 $TRUMPDEAD sent to {address} 🚀\nTx: https://solscan.io/tx/{tx_sig}")
         except Exception as e:
             await update.message.reply_text(f"Error sending tokens: {str(e)}")
     else:
@@ -85,3 +86,5 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("wallet", wallet))
+app.run_polling()
+
