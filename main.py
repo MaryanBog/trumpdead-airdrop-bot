@@ -11,7 +11,6 @@ if not TOKEN or not TOKEN.startswith("799"):
 
 CHANNEL_ID = -1002161990185
 
-
 # Проверка подписки
 async def check_subscription(user_id: int, app) -> bool:
     try:
