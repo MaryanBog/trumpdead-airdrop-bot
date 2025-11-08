@@ -43,6 +43,9 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Send: /wallet 0xABC123... to claim your $TRUMPDEAD.")
 
+if not TOKEN or not TOKEN.startswith("799"):
+    raise ValueError("TELEGRAM_BOT_TOKEN is missing or invalid.")
+
 # Запуск
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
