@@ -36,23 +36,20 @@ async def airdrop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         recipient = Pubkey.from_string(context.args[0])
-    except Exception:
-        await update.message.reply_text("Invalid Solana address.")
+    except:
+        await update.message.reply_text("Invalid address.")
         return
 
     try:
-        ix = transfer(
-            TransferParams(
-                from_pubkey=sender.pubkey(),
-                to_pubkey=recipient,
-                lamports=10_000  # 0.00001 SOL
-            )
-        )
+        ix = transfer(TransferParams(
+            from_pubkey=sender.pubkey(),
+            to_pubkey=recipient,
+            lamports=10_000
+        ))
 
-        # Modern transaction construction
-        recent_blockhash_resp = await client.get_latest_blockhash()
+        blockhash = await client.get_latest_blockhash()
         tx = Transaction.new_with_payer([ix], sender.pubkey())
-        tx.recent_blockhash = recent_blockhash_resp.value.blockhash
+        tx.recent_blockhash = blockhash.value.blockhash
         tx.sign(sender)
 
         sig = await client.send_transaction(tx)
