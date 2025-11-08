@@ -54,5 +54,13 @@ if not TOKEN or not TOKEN.startswith("799"):
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("wallet", wallet))
-app.run_polling()
+import asyncio
+
+async def main():
+    await app.initialize()
+    await app.start_polling()
+    await app.idle()
+
+asyncio.run(main())
+
 
