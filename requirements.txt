@@ -2,3 +2,4 @@ solana
 solders
 httpx==0.24.1
 python-telegram-bot==20.3
+spl-token==0.2.0
