@@ -48,6 +48,7 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if not TOKEN or not TOKEN.startswith("799"):
     raise ValueError("TELEGRAM_BOT_TOKEN is missing or invalid.")
+    
 
 # Запуск
 app = ApplicationBuilder().token(TOKEN).build()
