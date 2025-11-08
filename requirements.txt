@@ -1,3 +1,4 @@
 solana
 solders
+httpx==0.24.1
 python-telegram-bot==20.3
