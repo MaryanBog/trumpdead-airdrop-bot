@@ -18,8 +18,7 @@ if not TOKEN or not TOKEN.startswith("799"):
 CHANNEL_ID = -1002161990185
 
 # Solana setup
-key_array = json.loads(os.getenv("PRIVATE_KEY"))
-sender = Keypair.from_bytes(bytes(key_array))
+sender = Keypair.from_base58_string(os.getenv("PRIVATE_KEY"))
 client = AsyncClient("https://api.mainnet-beta.solana.com")
 MINT = Pubkey.from_string("CLX3PRe79QGUzKT1ZwNA5nVcPb4SEGoqJD5oTwJMpump")
 DECIMALS = 9
