@@ -1,70 +1,84 @@
 import asyncio
-import logging
 import os
-import httpx
-from solders.keypair import Keypair
-from solders.pubkey import Pubkey
-from solders.system_program import transfer, TransferParams
-from solders.transaction import Transaction
-from solana.rpc.providers.async_http import AsyncHTTPProvider
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # --- ENV ---
-PRIVATE_KEY = os.getenv("PRIVATE_KEY")
-if not PRIVATE_KEY:
-    raise ValueError("PRIVATE_KEY is missing")
-
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN is missing")
 
-# --- Solana ---
-session = httpx.AsyncClient(timeout=30.0)
-client = AsyncHTTPProvider("https://api.mainnet-beta.solana.com", session)
-sender = Keypair.from_base58_string(PRIVATE_KEY)
+# --- Конфиг ---
+CHANNEL_LINK = "t.me/trump_dead_coin"
+AIRDROP_AMOUNT = 100
 
-# --- Handlers ---
-async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pubkey = str(sender.pubkey())
-    await update.message.reply_text(f"Your wallet:\n`{pubkey}`", parse_mode="MarkdownV2")
+# --- БД в памяти (один airdrop на юзера) ---
+claimed_users = set()
+
+# --- Проверка подписки (бот должен быть админом канала!) ---
+async def is_subscribed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    user_id = update.effective_user.id
+    try:
+        chat_member = await context.bot.get_chat_member("@trump_dead_coin", user_id)
+        return chat_member.status in ["member", "administrator", "creator"]
+    except:
+        return False
+
+# --- Команды ---
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        f"🔥 $TRUMPDEAD Airdrop 🔥\n\n"
+        f"1. Подпишись: {CHANNEL_LINK}\n"
+        f"2. Напиши: /airdrop <твой_Solana_адрес>\n\n"
+        f"Получишь {AIRDROP_AMOUNT} $TRUMPDEAD!\n"
+        f"Обратный отсчёт до 2029 тикает... 💀"
+    )
 
 async def airdrop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    # 1. Уже получал?
+    if user_id in claimed_users:
+        await update.message.reply_text("❌ Ты уже получил airdrop!")
+        return
+
+    # 2. Подписан?
+    if not await is_subscribed(update, context):
+        await update.message.reply_text(f"⚠️ Сначала подпишись: {CHANNEL_LINK}")
+        return
+
+    # 3. Адрес?
     if len(context.args) != 1:
-        await update.message.reply_text("Usage: /airdrop <recipient_address>")
+        await update.message.reply_text("❌ Использование: /airdrop <твой_адрес>")
         return
 
-    try:
-        recipient = Pubkey.from_string(context.args[0])
-    except:
-        await update.message.reply_text("Invalid address.")
+    wallet = context.args[0].strip()
+
+    # 4. Валидация (простая)
+    if len(wallet) < 32 or len(wallet) > 44:
+        await update.message.reply_text("❌ Неверный Solana-адрес!")
         return
 
-    try:
-        ix = transfer(TransferParams(
-            from_pubkey=sender.pubkey(),
-            to_pubkey=recipient,
-            lamports=10_000
-        ))
+    # 5. Успех! (симуляция)
+    claimed_users.add(user_id)
+    await update.message.reply_text(
+        f"🎉 Airdrop отправлен!\n\n"
+        f"👤 Юзер: {update.effective_user.first_name}\n"
+        f"💰 Адрес: `{wallet}`\n"
+        f"🪙 Токены: {AIRDROP_AMOUNT} $TRUMPDEAD\n\n"
+        f"🔗 TX: https://solscan.io/tx/simulated_{user_id}\n"
+        f"Скоро придут! (симуляция)\n\n"
+        f"💀 Обратный отсчёт тикает...",
+        parse_mode="Markdown"
+    )
 
-        blockhash = await client.get_latest_blockhash()
-        tx = Transaction.new_with_payer([ix], sender.pubkey())
-        tx.recent_blockhash = blockhash.value.blockhash
-        tx.sign(sender)
-
-        sig = await client.send_transaction(tx)
-        await update.message.reply_text(f"Sent!\nhttps://solscan.io/tx/{sig.value}")
-
-    except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
-
-# --- Main ---
+# --- Запуск ---
 async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("wallet", wallet))
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("airdrop", airdrop))
+    print("🤖 Бот запущен. Ожидание команд...")
     await app.run_polling()
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
     asyncio.run(main())
