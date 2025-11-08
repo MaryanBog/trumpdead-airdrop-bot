@@ -11,6 +11,10 @@ if not TOKEN or not TOKEN.startswith("799"):
 
 CHANNEL_ID = "@trump_dead_coin"
 
+async def debug_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = await context.bot.get_chat("@trump_dead_coin")
+    await update.message.reply_text(f"Chat ID: {chat.id}")
+
 # Проверка подписки
 async def check_subscription(user_id: int, app) -> bool:
     try:
@@ -49,5 +53,5 @@ app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("wallet", wallet))
 app.run_polling()
-
+app.add_handler(CommandHandler("debug_chat_id", debug_chat_id))
 
