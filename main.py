@@ -52,6 +52,5 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("wallet", wallet))
-app.run_polling()
 app.add_handler(CommandHandler("debug_chat_id", debug_chat_id))
-
+app.run_polling()
