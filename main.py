@@ -1,8 +1,9 @@
+import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from db import has_claimed, save_claim
 
-import os
+# Получаем токен из переменной окружения
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 print("TOKEN:", TOKEN)
 if not TOKEN or not TOKEN.startswith("799"):
@@ -27,17 +28,14 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     app = context.application
 
-    # Проверка подписки
     if not await check_subscription(user_id, app):
         await update.message.reply_text("Please join @trump_dead_coin to receive your $TRUMPDEAD tokens.")
         return
 
-    # Проверка повторной выдачи
     if has_claimed(user_id):
         await update.message.reply_text("You've already claimed your $TRUMPDEAD.")
         return
 
-    # Обработка адреса
     args = context.args
     if args:
         address = args[0]
@@ -46,21 +44,10 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Send: /wallet 0xABC123... to claim your $TRUMPDEAD.")
 
-if not TOKEN or not TOKEN.startswith("799"):
-    raise ValueError("TELEGRAM_BOT_TOKEN is missing or invalid.")
-    
-
-# Запуск
+# Запуск приложения
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("wallet", wallet))
-import asyncio
-
-async def main():
-    await app.initialize()
-    await app.start_polling()
-    await app.idle()
-
-asyncio.run(main())
+app.run_polling()
 
 
