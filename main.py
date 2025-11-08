@@ -1,5 +1,7 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from db import has_claimed, save_claim
+
 import os
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -27,10 +29,16 @@ async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Please join @trump_dead_coin to receive your $TRUMPDEAD tokens.")
         return
 
+    # Проверка повторной выдачи
+    if has_claimed(user_id):
+        await update.message.reply_text("You've already claimed your $TRUMPDEAD.")
+        return
+
     # Обработка адреса
     args = context.args
     if args:
         address = args[0]
+        save_claim(user_id, address)
         await update.message.reply_text(f"100 $TRUMPDEAD sent to {address} 🚀")
     else:
         await update.message.reply_text("Send: /wallet 0xABC123... to claim your $TRUMPDEAD.")
