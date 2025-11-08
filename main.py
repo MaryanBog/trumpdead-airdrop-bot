@@ -21,3 +21,4 @@ app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("wallet", wallet))
 
 app.run_polling()
+print("TOKEN:", TOKEN)
