@@ -5,7 +5,7 @@ from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 from solders.instruction import Instruction, AccountMeta
-from solana.rpc.providers.http import HTTPProvider
+from solana.rpc.api import Client
 from spl.token.constants import TOKEN_PROGRAM_ID
 from spl.token.instructions import get_associated_token_address
 
@@ -23,7 +23,7 @@ TOKEN_DECIMALS = 6
 AMOUNT_TO_SEND = 100 * (10 ** TOKEN_DECIMALS)
 
 # --- RPC ---
-client = HTTPProvider("https://api.mainnet-beta.solana.com")
+client = Client("https://api.mainnet-beta.solana.com")
 sender = Keypair.from_base58_string(PRIVATE_KEY)
 
 # --- FastAPI ---
