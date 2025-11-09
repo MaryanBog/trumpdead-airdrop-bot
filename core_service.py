@@ -36,6 +36,10 @@ def airdrop(req: AirdropRequest):
         sender_ata = get_associated_token_address(sender.pubkey(), TOKEN_MINT)
         recipient_ata = get_associated_token_address(recipient, TOKEN_MINT)
 
+        print("transfer_checked =", transfer_checked)
+        print("transfer_checked.__module__ =", transfer_checked.__module__)
+        print("transfer_checked.__name__ =", transfer_checked.__name__)
+
         ix = transfer_checked(
             program_id=TOKEN_PROGRAM_ID,
             source=sender_ata,
