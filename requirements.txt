@@ -4,4 +4,3 @@ fastapi
 uvicorn
 solders
 solana
-spl-token
