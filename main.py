@@ -68,7 +68,6 @@ async def airdrop(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     claimed_users.add(user_id)
-
     tx = await send_airdrop(wallet, user_id)
 
     await update.message.reply_text(
