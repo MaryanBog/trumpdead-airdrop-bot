@@ -4,16 +4,13 @@ from pydantic import BaseModel
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.transaction import Transaction
+from solders.instruction import Instruction, AccountMeta
 from solana.rpc.providers.http import HTTPProvider
-from spl.token.instructions import transfer_checked, get_associated_token_address
 from spl.token.constants import TOKEN_PROGRAM_ID
+from spl.token.instructions import get_associated_token_address
 
 import logging
 logging.basicConfig(level=logging.INFO)
-
-logging.info(f"transfer_checked = {transfer_checked}")
-logging.info(f"transfer_checked.__module__ = {transfer_checked.__module__}")
-logging.info(f"transfer_checked.__name__ = {transfer_checked.__name__}")
 
 # --- ENV ---
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
@@ -43,22 +40,27 @@ def airdrop(req: AirdropRequest):
         sender_ata = get_associated_token_address(sender.pubkey(), TOKEN_MINT)
         recipient_ata = get_associated_token_address(recipient, TOKEN_MINT)
 
-        ix = transfer_checked(
-            program_id=TOKEN_PROGRAM_ID,
-            source=sender_ata,
-            mint=TOKEN_MINT,
-            dest=recipient_ata,
-            owner=sender.pubkey(),
-            amount=AMOUNT_TO_SEND,
-            decimals=TOKEN_DECIMALS,
-            signers=[]
-        )
+        # --- Сборка TransferChecked вручную ---
+        data = bytes([
+            12,  # TransferChecked instruction index
+            *AMOUNT_TO_SEND.to_bytes(8, "little"),  # amount: u64
+            TOKEN_DECIMALS  # decimals: u8
+        ])
+
+        accounts = [
+            AccountMeta(pubkey=sender_ata, is_signer=False, is_writable=True),
+            AccountMeta(pubkey=TOKEN_MINT, is_signer=False, is_writable=False),
+            AccountMeta(pubkey=recipient_ata, is_signer=False, is_writable=True),
+            AccountMeta(pubkey=sender.pubkey(), is_signer=True, is_writable=False),
+        ]
+
+        ix = Instruction(program_id=TOKEN_PROGRAM_ID, accounts=accounts, data=data)
 
         blockhash = client.get_latest_blockhash()
         tx = Transaction([ix], sender.pubkey(), blockhash.value.blockhash)
 
         sig = client.send_transaction(tx, sender)
-        return {"tx_signature": str(transfer_checked.__name__)}
+        return {"tx_signature": str(sig)}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
