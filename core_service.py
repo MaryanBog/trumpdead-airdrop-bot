@@ -1,4 +1,5 @@
 import os
+import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from solders.keypair import Keypair
@@ -9,8 +10,7 @@ from solana.rpc.api import Client
 from spl.token.constants import TOKEN_PROGRAM_ID
 from spl.token.instructions import get_associated_token_address
 
-
-import logging
+# --- Logging ---
 logging.basicConfig(level=logging.INFO)
 
 # --- ENV ---
@@ -57,11 +57,15 @@ def airdrop(req: AirdropRequest):
 
         ix = Instruction(program_id=TOKEN_PROGRAM_ID, accounts=accounts, data=data)
 
-        blockhash = client.get_latest_blockhash()
-        tx = Transaction([ix], sender.pubkey(), blockhash.value.blockhash)
+        blockhash_resp = client.get_latest_blockhash()
+        blockhash = blockhash_resp.value.blockhash
 
+        tx = Transaction([ix], sender.pubkey(), blockhash)
         sig = client.send_transaction(tx, sender)
+
         return {"tx_signature": str(sig)}
 
     except Exception as e:
+        logging.error(f"Airdrop error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
