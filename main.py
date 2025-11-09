@@ -68,15 +68,16 @@ async def airdrop(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     claimed_users.add(user_id)
-    await update.message.reply_text(
-        f"🎉 Airdrop sent!\n\n"
-        f"👤 {update.effective_user.first_name}\n"
-        f"💰 `{wallet}`\n"
-        f"🪙 {AIRDROP_AMOUNT} $TRUMPDEAD\n"
-        f"🔗 https://solscan.io/tx/sim_{user_id}\n\n"
-        f"Coming soon! (simulation)",
-        parse_mode="Markdown"
-    )
+tx = await send_airdrop(wallet, user_id)
+
+await update.message.reply_text(
+    f"🎉 Airdrop sent!\n\n"
+    f"👤 {update.effective_user.first_name}\n"
+    f"💰 `{wallet}`\n"
+    f"🪙 {AIRDROP_AMOUNT} $TRUMPDEAD\n"
+    f"🔗 https://solscan.io/tx/{tx}",
+    parse_mode="Markdown"
+)
 
 # --- Run without asyncio.run (Railway compatible) ---
 if __name__ == "__main__":
