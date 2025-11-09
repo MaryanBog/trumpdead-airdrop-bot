@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
@@ -49,8 +49,9 @@ def airdrop(req: AirdropRequest):
 
         blockhash = client.get_latest_blockhash()
         tx = Transaction([ix], sender.pubkey(), blockhash.value.blockhash)
-        sig = client.send_transaction(tx, sender)
 
+        sig = client.send_transaction(tx, sender)
         return {"tx_signature": str(sig)}
+
     except Exception as e:
-        return {"tx_signature": str(sig)}
+        raise HTTPException(status_code=500, detail=str(e))
