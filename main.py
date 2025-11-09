@@ -67,8 +67,12 @@ async def airdrop(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Invalid Solana address!")
         return
 
-    claimed_users.add(user_id)
+        claimed_users.add(user_id)
     tx = await send_airdrop(wallet, user_id)
+
+    if not tx or "Error" in tx:
+        await update.message.reply_text(f"❌ Airdrop failed:\n{tx}")
+        return
 
     await update.message.reply_text(
         f"🎉 Airdrop sent!\n\n"
