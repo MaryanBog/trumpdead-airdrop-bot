@@ -8,6 +8,13 @@ from solana.rpc.providers.http import HTTPProvider
 from spl.token.instructions import transfer_checked, get_associated_token_address
 from spl.token.constants import TOKEN_PROGRAM_ID
 
+import logging
+logging.basicConfig(level=logging.INFO)
+
+logging.info(f"transfer_checked = {transfer_checked}")
+logging.info(f"transfer_checked.__module__ = {transfer_checked.__module__}")
+logging.info(f"transfer_checked.__name__ = {transfer_checked.__name__}")
+
 # --- ENV ---
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 if not PRIVATE_KEY:
