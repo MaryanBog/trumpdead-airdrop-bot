@@ -1,6 +1,12 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler
+from telegram.ext import ContextTypes
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 import httpx
 
@@ -87,5 +93,5 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("airdrop", airdrop))
-    print("🤖 Bot started...")
+    print("Bot started...")
     app.run_polling()
