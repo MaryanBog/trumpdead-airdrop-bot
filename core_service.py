@@ -9,6 +9,7 @@ from solana.rpc.api import Client
 from spl.token.constants import TOKEN_PROGRAM_ID
 from spl.token.instructions import get_associated_token_address
 
+
 import logging
 logging.basicConfig(level=logging.INFO)
 
