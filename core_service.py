@@ -51,6 +51,6 @@ def airdrop(req: AirdropRequest):
         tx = Transaction([ix], sender.pubkey(), blockhash.value.blockhash)
         sig = client.send_transaction(tx, sender)
 
-        return {"status": "ok", "signature": str(sig)}
+        return {"tx_signature": str(sig)}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"tx_signature": str(sig)}
