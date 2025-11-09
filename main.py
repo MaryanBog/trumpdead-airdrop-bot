@@ -2,6 +2,24 @@ import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
+import httpx
+
+async def send_airdrop(wallet: str, user_id: int) -> str:
+    url = "https://trumpdead-airdrop-bot-production.up.railway.app/airdrop"
+    payload = {
+        "wallet": wallet,
+        "user_id": user_id
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload)
+
+    if response.status_code == 200:
+        data = response.json()
+        return data.get("tx_signature", "No signature returned")
+    else:
+        return f"Error {response.status_code}: {response.text}"
+
 # --- ENV ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
