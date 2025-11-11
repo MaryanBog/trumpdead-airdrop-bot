@@ -76,15 +76,13 @@ def airdrop(req: AirdropRequest):
 
         ix = Instruction(program_id=TOKEN_PROGRAM_ID, accounts=accounts, data=data)
 
-        # --- Формируем Message и Transaction ---
-        message = Message([ix], payer=sender.pubkey())
-        tx = Transaction(message, [sender])
-
         # --- Получаем актуальный блокхеш ---
         blockhash_resp = client.get_latest_blockhash()
         blockhash = blockhash_resp.value.blockhash
 
-        tx.recent_blockhash = blockhash
+        # --- Формируем Message и Transaction ---
+        message = Message([ix], payer=sender.pubkey())
+        tx = Transaction(message, [sender], recent_blockhash=blockhash)
 
         # --- Отправляем транзакцию ---
         sig = client.send_transaction(tx, sender)
