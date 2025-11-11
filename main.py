@@ -91,8 +91,15 @@ async def airdrop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- Run without asyncio.run (Railway compatible) ---
 if __name__ == "__main__":
+    disable_bot = os.getenv("DISABLE_BOT", "false").lower() == "true"
+
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("airdrop", airdrop))
-    print("Bot started...")
-    app.run_polling()
+
+    if disable_bot:
+        print("⚙️ Bot disabled on this service (web mode).")
+    else:
+        print("🤖 Bot started... (polling mode)")
+        app.run_polling()
+
