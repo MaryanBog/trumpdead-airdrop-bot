@@ -62,13 +62,9 @@ def airdrop(req: AirdropRequest):
         sender_ata = get_associated_token_address(sender.pubkey(), TOKEN_MINT)
         recipient_ata = get_associated_token_address(recipient, TOKEN_MINT)
 
-        # --- Сборка инструкции TransferChecked ---
+        # --- Инструкция TransferChecked ---
         data = bytes(
-            [
-                12,  # TransferChecked instruction index
-                *AMOUNT_TO_SEND.to_bytes(8, "little"),  # amount: u64
-                TOKEN_DECIMALS,  # decimals: u8
-            ]
+            [12, *AMOUNT_TO_SEND.to_bytes(8, "little"), TOKEN_DECIMALS]
         )
 
         accounts = [
@@ -80,30 +76,27 @@ def airdrop(req: AirdropRequest):
 
         ix = Instruction(program_id=TOKEN_PROGRAM_ID, accounts=accounts, data=data)
 
-        # --- Получаем актуальный blockhash ---
-        blockhash_resp = client.get_latest_blockhash()
-        blockhash = Hash.from_string(str(blockhash_resp.value.blockhash))
+        # --- Получаем блокхеш ---
+        bh_resp = client.get_latest_blockhash()
+        blockhash = bh_resp.value.blockhash
 
-        # --- Создаём Message и Transaction ---
-        message = Message([ix], payer=sender.pubkey())
-        tx = Transaction([sender], message, recent_blockhash=blockhash)
+        # --- Собираем сообщение и транзакцию ---
+        msg = Message([ix], payer=sender.pubkey())
+        tx = Transaction([sender], msg, recent_blockhash=blockhash)
 
         # --- Подписываем и сериализуем ---
-        tx.sign(sender)
         raw_tx = bytes(tx)
 
-        # --- Отправляем напрямую через RPC ---
-        resp = client.send_raw_transaction(raw_tx)
+        # --- Отправляем напрямую ---
+        resp = client.send_raw_transaction(raw_tx, opts={"skip_preflight": False})
         sig = resp.value
 
-        print(f"✅ Sent airdrop! Signature: {sig}")
+        print(f"✅ Sent! Signature: {sig}")
         return {"tx_signature": str(sig)}
-
 
     except Exception as e:
         logging.exception("Airdrop error:")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # --- Run for Railway/local ---
 if __name__ == "__main__":
