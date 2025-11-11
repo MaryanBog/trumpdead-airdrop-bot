@@ -12,6 +12,7 @@ from solders.hash import Hash
 from solana.rpc.api import Client
 from spl.token.constants import TOKEN_PROGRAM_ID
 from spl.token.instructions import get_associated_token_address
+from solana.rpc.types import TxOpts
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
@@ -88,7 +89,11 @@ def airdrop(req: AirdropRequest):
         raw_tx = bytes(tx)
 
         # --- Отправляем напрямую ---
-        resp = client.send_raw_transaction(raw_tx, opts={"skip_preflight": False})
+        resp = client.send_raw_transaction(
+        raw_tx,
+        opts=TxOpts(skip_preflight=False, preflight_commitment="confirmed")
+        )
+
         sig = resp.value
 
         print(f"✅ Sent! Signature: {sig}")
