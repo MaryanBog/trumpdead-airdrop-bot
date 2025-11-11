@@ -79,7 +79,10 @@ def airdrop(req: AirdropRequest):
         blockhash_resp = client.get_latest_blockhash()
         blockhash = blockhash_resp.value.blockhash
 
-        tx = Transaction([ix], sender.pubkey(), blockhash)
+        # --- Формируем и подписываем транзакцию ---
+        tx = Transaction.new_unsigned([ix])
+        tx.sign(sender)
+
         sig = client.send_transaction(tx, sender)
 
         print(f"✅ Airdrop sent successfully! Signature: {sig}")
