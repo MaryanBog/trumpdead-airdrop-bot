@@ -8,11 +8,12 @@ from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 from solders.instruction import Instruction, AccountMeta
 from solders.message import Message
-from solders.hash import Hash
+
 from solana.rpc.api import Client
-from spl.token.constants import TOKEN_PROGRAM_ID
-from spl.token.instructions import get_associated_token_address
 from solana.rpc.types import TxOpts
+
+from spl.token.constants import TOKEN_PROGRAM_ID
+from spl.token.instructions import get_associated_token_address, create_associated_token_account
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
@@ -60,40 +61,67 @@ def airdrop(req: AirdropRequest):
     try:
         print(f"📨 Received airdrop request for {req.wallet}")
         recipient = Pubkey.from_string(req.wallet)
-        sender_ata = get_associated_token_address(sender.pubkey(), TOKEN_MINT)
-        recipient_ata = get_associated_token_address(recipient, TOKEN_MINT)
 
-        # --- Инструкция TransferChecked ---
-        data = bytes(
-            [12, *AMOUNT_TO_SEND.to_bytes(8, "little"), TOKEN_DECIMALS]
-        )
+        # --- ATA адреса ---
+        sender_pub = sender.pubkey()
+        sender_ata = get_associated_token_address(sender_pub,          TOKEN_MINT)
+        recipient_ata = get_associated_token_address(recipient,        TOKEN_MINT)
+
+        # --- Проверяем наличие ATA и добавляем инструкции на создание при необходимости ---
+        instructions = []
+
+        # 1) ATA отправителя (на случай “чистого” кошелька)
+        sender_ata_info = client.get_account_info(sender_ata)
+        if sender_ata_info.value is None:
+            print("⚙️ Sender ATA not found. Adding create_ata for sender...")
+            instructions.append(
+                create_associated_token_account(
+                    payer=sender_pub,     # отправитель оплачивает
+                    owner=sender_pub,     # чей ATA создаём — у отправителя
+                    mint=TOKEN_MINT
+                )
+            )
+
+        # 2) ATA получателя
+        recipient_ata_info = client.get_account_info(recipient_ata)
+        if recipient_ata_info.value is None:
+            print("⚙️ Recipient ATA not found. Adding create_ata for recipient...")
+            instructions.append(
+                create_associated_token_account(
+                    payer=sender_pub,     # оплачивает отправитель
+                    owner=recipient,      # чей ATA создаём — у получателя
+                    mint=TOKEN_MINT
+                )
+            )
+
+        # --- Инструкция TransferChecked (SPL Token Program) ---
+        # index 12 = TransferChecked, layout: amount u64 (LE) + decimals u8
+        data = bytes([12, *AMOUNT_TO_SEND.to_bytes(8, "little"), TOKEN_DECIMALS])
 
         accounts = [
-            AccountMeta(pubkey=sender_ata, is_signer=False, is_writable=True),
-            AccountMeta(pubkey=TOKEN_MINT, is_signer=False, is_writable=False),
-            AccountMeta(pubkey=recipient_ata, is_signer=False, is_writable=True),
-            AccountMeta(pubkey=sender.pubkey(), is_signer=True, is_writable=False),
+            AccountMeta(pubkey=sender_ata,   is_signer=False, is_writable=True),
+            AccountMeta(pubkey=TOKEN_MINT,   is_signer=False, is_writable=False),
+            AccountMeta(pubkey=recipient_ata,is_signer=False, is_writable=True),
+            AccountMeta(pubkey=sender_pub,   is_signer=True,  is_writable=False),
         ]
+        transfer_ix = Instruction(program_id=TOKEN_PROGRAM_ID, accounts=accounts, data=data)
 
-        ix = Instruction(program_id=TOKEN_PROGRAM_ID, accounts=accounts, data=data)
+        instructions.append(transfer_ix)
 
-        # --- Получаем блокхеш ---
+        # --- Актуальный blockhash ---
         bh_resp = client.get_latest_blockhash()
-        blockhash = bh_resp.value.blockhash
+        blockhash = bh_resp.value.blockhash  # тип совместим с solders Hash
 
-        # --- Собираем сообщение и транзакцию ---
-        msg = Message([ix], payer=sender.pubkey())
+        # --- Message и Transaction (ВАЖНО: порядок аргументов для solders.Transaction) ---
+        msg = Message(instructions, payer=sender_pub)
         tx = Transaction([sender], msg, recent_blockhash=blockhash)
 
-        # --- Подписываем и сериализуем ---
+        # --- Сериализуем и отправляем ---
         raw_tx = bytes(tx)
-
-        # --- Отправляем напрямую ---
         resp = client.send_raw_transaction(
-        raw_tx,
-        opts=TxOpts(skip_preflight=False, preflight_commitment="confirmed")
+            raw_tx,
+            opts=TxOpts(skip_preflight=False, preflight_commitment="confirmed")
         )
-
         sig = resp.value
 
         print(f"✅ Sent! Signature: {sig}")
@@ -103,9 +131,9 @@ def airdrop(req: AirdropRequest):
         logging.exception("Airdrop error:")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # --- Run for Railway/local ---
 if __name__ == "__main__":
     import uvicorn
-
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run("core_service:app", host="0.0.0.0", port=port)
