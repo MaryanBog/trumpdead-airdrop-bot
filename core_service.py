@@ -2,6 +2,7 @@ import os
 import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.transaction import Transaction
@@ -13,10 +14,22 @@ from spl.token.instructions import get_associated_token_address
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
 
+print("✅ Starting FastAPI initialization...")
+
 # --- ENV ---
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 if not PRIVATE_KEY:
-    raise ValueError("PRIVATE_KEY is missing")
+    raise ValueError("❌ PRIVATE_KEY is missing")
+
+try:
+    print("Loading PRIVATE_KEY...")
+    PRIVATE_KEY = PRIVATE_KEY.strip()
+    print("PRIVATE_KEY length:", len(PRIVATE_KEY))
+    sender = Keypair.from_base58_string(PRIVATE_KEY)
+    print("✅ Keypair loaded successfully")
+except Exception as e:
+    print("❌ Error loading keypair:", e)
+    raise
 
 # --- Token config ---
 TOKEN_MINT = Pubkey.from_string("CLX3PRe79QGUzKT1ZwNA5nVcPb4SEGoqJD5oTwJMpump")
@@ -24,19 +37,25 @@ TOKEN_DECIMALS = 6
 AMOUNT_TO_SEND = 100 * (10 ** TOKEN_DECIMALS)
 
 # --- RPC ---
-client = Client("https://api.mainnet-beta.solana.com")
-sender = Keypair.from_base58_string(PRIVATE_KEY.strip())
+RPC_URL = os.getenv("RPC_URL", "https://api.mainnet-beta.solana.com")
+print(f"Using RPC: {RPC_URL}")
+client = Client(RPC_URL)
 
-# --- FastAPI ---
+# --- FastAPI App ---
 app = FastAPI()
 
 class AirdropRequest(BaseModel):
     wallet: str
     user_id: int
 
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "TrumpDead Airdrop API is live!"}
+
 @app.post("/airdrop")
 def airdrop(req: AirdropRequest):
     try:
+        print(f"Received airdrop request for wallet: {req.wallet}")
         recipient = Pubkey.from_string(req.wallet)
         sender_ata = get_associated_token_address(sender.pubkey(), TOKEN_MINT)
         recipient_ata = get_associated_token_address(recipient, TOKEN_MINT)
@@ -63,9 +82,9 @@ def airdrop(req: AirdropRequest):
         tx = Transaction([ix], sender.pubkey(), blockhash)
         sig = client.send_transaction(tx, sender)
 
+        print(f"✅ Airdrop sent successfully! Signature: {sig}")
         return {"tx_signature": str(sig)}
 
     except Exception as e:
         logging.error(f"Airdrop error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
