@@ -25,7 +25,7 @@ AMOUNT_TO_SEND = 100 * (10 ** TOKEN_DECIMALS)
 
 # --- RPC ---
 client = Client("https://api.mainnet-beta.solana.com")
-sender = Keypair.from_base58_string(PRIVATE_KEY)
+sender = Keypair.from_base58_string(PRIVATE_KEY.strip())
 
 # --- FastAPI ---
 app = FastAPI()
