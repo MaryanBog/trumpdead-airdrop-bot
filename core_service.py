@@ -88,10 +88,17 @@ def airdrop(req: AirdropRequest):
         message = Message([ix], payer=sender.pubkey())
         tx = Transaction([sender], message, recent_blockhash=blockhash)
 
-        # --- Отправляем транзакцию ---
-        sig = client.send_transaction(tx, sender)
+        # --- Подписываем и сериализуем ---
+        tx.sign(sender)
+        raw_tx = bytes(tx)
+
+        # --- Отправляем напрямую через RPC ---
+        resp = client.send_raw_transaction(raw_tx)
+        sig = resp.value
+
         print(f"✅ Sent airdrop! Signature: {sig}")
         return {"tx_signature": str(sig)}
+
 
     except Exception as e:
         logging.exception("Airdrop error:")
