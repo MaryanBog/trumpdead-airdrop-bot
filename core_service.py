@@ -8,6 +8,7 @@ from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 from solders.instruction import Instruction, AccountMeta
 from solders.message import Message
+from solders.hash import Hash
 from solana.rpc.api import Client
 from spl.token.constants import TOKEN_PROGRAM_ID
 from spl.token.instructions import get_associated_token_address
@@ -22,9 +23,7 @@ if not PRIVATE_KEY:
     raise ValueError("❌ PRIVATE_KEY is missing")
 
 try:
-    print("Loading PRIVATE_KEY...")
     PRIVATE_KEY = PRIVATE_KEY.strip()
-    print("PRIVATE_KEY length:", len(PRIVATE_KEY))
     sender = Keypair.from_base58_string(PRIVATE_KEY)
     print("✅ Keypair loaded successfully")
 except Exception as e:
@@ -38,34 +37,39 @@ AMOUNT_TO_SEND = 100 * (10 ** TOKEN_DECIMALS)
 
 # --- RPC ---
 RPC_URL = os.getenv("RPC_URL", "https://api.mainnet-beta.solana.com")
-print(f"Using RPC: {RPC_URL}")
 client = Client(RPC_URL)
+print(f"Using RPC: {RPC_URL}")
 
-# --- FastAPI App ---
+# --- FastAPI ---
 app = FastAPI()
+
 
 class AirdropRequest(BaseModel):
     wallet: str
     user_id: int
 
+
 @app.get("/")
 def root():
     return {"status": "ok", "message": "TrumpDead Airdrop API is live!"}
 
+
 @app.post("/airdrop")
 def airdrop(req: AirdropRequest):
     try:
-        print(f"Received airdrop request for wallet: {req.wallet}")
+        print(f"📨 Received airdrop request for {req.wallet}")
         recipient = Pubkey.from_string(req.wallet)
         sender_ata = get_associated_token_address(sender.pubkey(), TOKEN_MINT)
         recipient_ata = get_associated_token_address(recipient, TOKEN_MINT)
 
-        # --- Сборка TransferChecked вручную ---
-        data = bytes([
-            12,  # TransferChecked instruction index
-            *AMOUNT_TO_SEND.to_bytes(8, "little"),  # amount: u64
-            TOKEN_DECIMALS  # decimals: u8
-        ])
+        # --- Сборка инструкции TransferChecked ---
+        data = bytes(
+            [
+                12,  # TransferChecked instruction index
+                *AMOUNT_TO_SEND.to_bytes(8, "little"),  # amount: u64
+                TOKEN_DECIMALS,  # decimals: u8
+            ]
+        )
 
         accounts = [
             AccountMeta(pubkey=sender_ata, is_signer=False, is_writable=True),
@@ -76,26 +80,27 @@ def airdrop(req: AirdropRequest):
 
         ix = Instruction(program_id=TOKEN_PROGRAM_ID, accounts=accounts, data=data)
 
-        # --- Получаем актуальный блокхеш ---
+        # --- Получаем актуальный blockhash ---
         blockhash_resp = client.get_latest_blockhash()
-        blockhash = blockhash_resp.value.blockhash
+        blockhash = Hash.from_string(str(blockhash_resp.value.blockhash))
 
-        # --- Формируем Message и Transaction ---
+        # --- Создаём Message и Transaction ---
         message = Message([ix], payer=sender.pubkey())
-        tx = Transaction(message, [sender], recent_blockhash=blockhash)
+        tx = Transaction([sender], message, recent_blockhash=blockhash)
 
         # --- Отправляем транзакцию ---
         sig = client.send_transaction(tx, sender)
-        print(f"✅ Airdrop sent successfully! Signature: {sig}")
+        print(f"✅ Sent airdrop! Signature: {sig}")
         return {"tx_signature": str(sig)}
 
     except Exception as e:
-        logging.error(f"Airdrop error: {e}")
+        logging.exception("Airdrop error:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- Run for local testing / Railway ---
+# --- Run for Railway/local ---
 if __name__ == "__main__":
     import uvicorn
+
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run("core_service:app", host="0.0.0.0", port=port)
