@@ -7,13 +7,13 @@ from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 from solders.instruction import Instruction, AccountMeta
+from solders.message import Message
 from solana.rpc.api import Client
 from spl.token.constants import TOKEN_PROGRAM_ID
 from spl.token.instructions import get_associated_token_address
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO)
-
 print("✅ Starting FastAPI initialization...")
 
 # --- ENV ---
@@ -76,18 +76,28 @@ def airdrop(req: AirdropRequest):
 
         ix = Instruction(program_id=TOKEN_PROGRAM_ID, accounts=accounts, data=data)
 
+        # --- Формируем Message и Transaction ---
+        message = Message([ix], payer=sender.pubkey())
+        tx = Transaction(message, [sender])
+
+        # --- Получаем актуальный блокхеш ---
         blockhash_resp = client.get_latest_blockhash()
         blockhash = blockhash_resp.value.blockhash
 
-        # --- Формируем и подписываем транзакцию ---
-        tx = Transaction.new_unsigned([ix])
-        tx.sign(sender)
+        tx.recent_blockhash = blockhash
 
+        # --- Отправляем транзакцию ---
         sig = client.send_transaction(tx, sender)
-
         print(f"✅ Airdrop sent successfully! Signature: {sig}")
         return {"tx_signature": str(sig)}
 
     except Exception as e:
         logging.error(f"Airdrop error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Run for local testing / Railway ---
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("core_service:app", host="0.0.0.0", port=port)
