@@ -88,3 +88,9 @@ def airdrop(req: AirdropRequest):
     except Exception as e:
         logging.error(f"Airdrop error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+    # --- run locally / on Railway ---
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("core_service:app", host="0.0.0.0", port=port)
