@@ -12,7 +12,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 import httpx
 
 async def send_airdrop(wallet: str, user_id: int) -> str:
-    url = "https://trumpdead-airdrop-bot-production.up.railway.app/airdrop"
+    url = "https://web-production-00ae.up.railway.app/airdrop"
     payload = {
         "wallet": wallet,
         "user_id": user_id
